@@ -1,1 +1,1 @@
-../../config/config-test.js
+../../config/config-example.js
