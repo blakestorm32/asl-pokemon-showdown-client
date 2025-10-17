@@ -16,6 +16,13 @@ class Replays {
 	function init() {
 		if ($this->offlineReason) return;
 		if ($this->db) return;
+		error_log("DB CONFIG: " . json_encode([
+		'driver' => $this->config['driver'] ?? 'mysql',
+		'server' => $this->config['server'] ?? '(none)',
+		'port' => $this->config['port'] ?? '(none)',
+		'database' => $this->config['database'] ?? '(none)',
+		'username' => $this->config['username'] ?? '(none)',
+		]));
 		try {
 			if (@$this->config['connection_string']) {
 				$this->db = new PDO($this->config['connection_string']);
