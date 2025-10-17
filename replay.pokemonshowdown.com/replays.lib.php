@@ -17,6 +17,7 @@ class Replays {
 		if ($this->offlineReason) return;
 		if ($this->db) return;
 		try {
+			error_log('[DB CONFIG] connection_string=' . json_encode($this->config['connection_string']));
 			if (@$this->config['connection_string']) {
 				$this->db = new PDO($this->config['connection_string']);
 			} else {
@@ -31,6 +32,8 @@ class Replays {
 				);
 			}
 		} catch (PDOException $e) {
+			error_log('[DB ERROR] ' . $e->getMessage());
+    		error_log('[DB TRACE] ' . $e->getTraceAsString());
 			// this error message contains the database password for some reason :|
 			header('HTTP/1.1 503 Service Unavailable');
 			// die($e);
