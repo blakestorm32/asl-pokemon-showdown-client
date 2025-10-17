@@ -1,0 +1,49 @@
+:{$PORT} {
+  # Adjust if your web root isn't /app/public
+  root * /app/public
+  encode zstd gzip
+
+  # Serve PHP (FrankenPHP is bundled by Railpack)
+  php_fastcgi unix//run/php/php-fpm.sock
+
+  # 1) Proxy /api/* to your local API on :9000 (keeps /api prefix)
+  @api path /api*
+  reverse_proxy @api http://localhost:9000
+
+  # 2) Internal rewrites (preserve query string by default)
+  @search  path /search.json
+  @recent  path /recent.json
+  rewrite @search /api/replays/search.json
+  rewrite @recent /api/replays/search.json
+
+  @download path /download
+  rewrite @download /download.html
+
+  # 3) Pretty URLs → PHP handlers (regex captures)
+  @slug    path_regexp slug    ^/([A-Za-z0-9-]+)$
+  rewrite  @slug /index.php?name={re.slug.1}
+
+  @manage  path_regexp manage  ^/([A-Za-z0-9-]+)/manage$
+  rewrite  @manage /replay-manage.php?name={re.manage.1}&manage=1
+
+  @log     path_regexp log     ^/([A-Za-z0-9-]+)\.log$
+  rewrite  @log /replay.log.php?name={re.log.1}
+
+  @input   path_regexp input   ^/([A-Za-z0-9-]+)\.inputlog$
+  rewrite  @input /replay.log.php?inputlog=1&name={re.input.1}
+
+  @json    path_regexp j       ^/([A-Za-z0-9-]+)\.json$
+  rewrite  @json /replay.log.php?json=1&name={re.j.1}
+
+  # 4) Directory index fallbacks (like DirectoryIndex)
+  try_files {path} {path}/ /index.php /index.html /dirindex/dirindex.php
+
+  # 5) Custom 404 (like ErrorDocument 404)
+  handle_errors {
+    @notfound expression {http.error.status_code} == 404
+    rewrite @notfound /dirindex/404.html
+    file_server
+  }
+
+  file_server
+}
