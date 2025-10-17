@@ -1,10 +1,10 @@
 <?php
 
 $config_replay_database = [
-	'server' => '127.0.0.1',
-	'username' => 'username',
-	'password' => 'password',
-	'database' => 'replays',
+	'server' => 'postgres.railway.internal',
+	'username' => 'postgres',
+	'password' => 'zSEKtchygxzVFJSxEqHsPWyuusmTDmGd',
+	'database' => 'railway',
 	'prefix' => 'ps_',
 	'charset' => 'utf8mb4',
 ];
