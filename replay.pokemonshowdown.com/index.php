@@ -63,13 +63,14 @@ if ($id) {
 		}
 	} else {
 		require_once 'replays.lib.php';
+		error_log("JSON API - Replay lookup attempt - ID: " . $id);
+		error_log("JSON API - Database connection status: " . ($Replays->db ? "Connected" : "Not connected"));
+		error_log("JSON API - Force cache flag: " . ($forcecache ? "true" : "false"));
 		if (!$Replays->db && !$forcecache) {
 			header('HTTP/1.1 503 Service Unavailable');
 			die();
 		}
-		error_log("JSON API - Replay lookup attempt - ID: " . $id);
-		error_log("JSON API - Database connection status: " . ($Replays->db ? "Connected" : "Not connected"));
-		error_log("JSON API - Force cache flag: " . ($forcecache ? "true" : "false"));
+		
 		$replay = $Replays->get($id, $forcecache);
 	}
 	if (!$replay) {
