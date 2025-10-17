@@ -1,4 +1,9 @@
-2:{$PORT} {
+{
+  auto_https off   # do NOT try to get certs inside the container
+  admin off
+}
+
+http://:{$PORT} {
   root * /app/replay.pokemonshowdown.com
   encode zstd gzip
 
