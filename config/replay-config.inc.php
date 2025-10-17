@@ -1,6 +1,12 @@
 <?php
 
 $config_replay_database = [
-	'connection_string' => 'postgresql://postgres:zSEKtchygxzVFJSxEqHsPWyuusmTDmGd@ballast.proxy.rlwy.net:39166/railway',
-	'prefix' => 'ps_',
+  'driver'   => 'pgsql',
+  'server'   => 'ballast.proxy.rlwy.net',
+  'port'     => '39166',
+  'database' => 'railway',
+  'username' => 'postgres',
+  'password' => 'zSEKtchygxzVFJSxEqHsPWyuusmTDmGd',
+  'sslmode'  => 'require',   // Railway PG usually needs this
+  'prefix'   => 'ps_',
 ];
