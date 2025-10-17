@@ -1,18 +1,65 @@
 {
-  auto_https off   # do NOT try to get certs inside the container
-  admin off
+  auto_https off     # disable internal TLS/ACME (Railway terminates HTTPS)
+  admin off          # disable Caddy admin API
 }
 
 http://:{$PORT} {
   root * /app/replay.pokemonshowdown.com
   encode zstd gzip
 
+  # Log all HTTP requests to Railway logs
   log {
     output stdout
     format console
     level DEBUG
   }
 
+  #######################
+  # Reverse proxy /api/* 
+  #######################
+  @api path /api*
+  reverse_proxy @api http://localhost:9000
+
+  #######################
+  # Rewrite rules (from your .htaccess)
+  #######################
+
+  # /search.json and /recent.json → /api/replays/search.json
+  @search path /search.json
+  @recent path /recent.json
+  rewrite @search /api/replays/search.json
+  rewrite @recent /api/replays/search.json
+
+  # /download → /download.html
+  @download path /download
+  rewrite @download /download.html
+
+  # Pretty routes (e.g. /abc123)
+  @slug   path_regexp slug   ^/([A-Za-z0-9-]+)$
+  rewrite @slug /index.php?name={re.slug.1}
+
+  # /abc123/manage → replay-manage.php
+  @manage path_regexp manage ^/([A-Za-z0-9-]+)/manage$
+  rewrite @manage /replay-manage.php?name={re.manage.1}&manage=1
+
+  # /abc123.log → replay.log.php
+  @log path_regexp log ^/([A-Za-z0-9-]+)\.log$
+  rewrite @log /replay.log.php?name={re.log.1}
+
+  # /abc123.inputlog → replay.log.php?inputlog=1
+  @input path_regexp input ^/([A-Za-z0-9-]+)\.inputlog$
+  rewrite @input /replay.log.php?inputlog=1&name={re.input.1}
+
+  # /abc123.json → replay.log.php?json=1
+  @json path_regexp j ^/([A-Za-z0-9-]+)\.json$
+  rewrite @json /replay.log.php?json=1&name={re.j.1}
+
+  # DirectoryIndex-like fallback
+  try_files {path} {path}/ /index.php /index.html
+
+  # Serve PHP files via FrankenPHP
   php_server
+
+  # Serve static files (CSS, JS, etc.)
   file_server
 }
