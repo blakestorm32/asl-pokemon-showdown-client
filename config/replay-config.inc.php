@@ -1,10 +1,6 @@
 <?php
 
 $config_replay_database = [
-	'server' => 'postgres.railway.internal',
-	'username' => 'postgres',
-	'password' => 'zSEKtchygxzVFJSxEqHsPWyuusmTDmGd',
-	'database' => 'railway',
+	'connection_string' => 'postgresql://postgres:zSEKtchygxzVFJSxEqHsPWyuusmTDmGd@ballast.proxy.rlwy.net:39166/railway',
 	'prefix' => 'ps_',
-	'charset' => 'utf8mb4',
 ];
