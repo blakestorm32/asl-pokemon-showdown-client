@@ -14,6 +14,13 @@ class Replays {
 	}
 
 	function init() {
+		error_log("DB CONFIG: " . json_encode([
+		'driver' => $this->config['driver'] ?? 'mysql',
+		'server' => $this->config['server'] ?? '(none)',
+		'port' => $this->config['port'] ?? '(none)',
+		'database' => $this->config['database'] ?? '(none)',
+		'username' => $this->config['username'] ?? '(none)',
+		]));
 		if ($this->offlineReason) return;
 		if ($this->db) return;
 		error_log("DB CONFIG: " . json_encode([
