@@ -20,6 +20,10 @@
 error_reporting(E_ALL);
 ini_set('display_errors', TRUE);
 ini_set('display_startup_errors', TRUE);
+ini_set('display_errors', '1');           // show on page (for now)
+ini_set('display_startup_errors', '1');
+ini_set('log_errors', '1');
+ini_set('error_log', 'php://stderr');     // send to Railway logs
 
 $manage = false;
 if (isset($_REQUEST['manage'])) {
@@ -63,6 +67,9 @@ if ($id) {
 			header('HTTP/1.1 503 Service Unavailable');
 			die();
 		}
+		error_log("JSON API - Replay lookup attempt - ID: " . $id);
+		error_log("JSON API - Database connection status: " . ($Replays->db ? "Connected" : "Not connected"));
+		error_log("JSON API - Force cache flag: " . ($forcecache ? "true" : "false"));
 		$replay = $Replays->get($id, $forcecache);
 	}
 	if (!$replay) {
