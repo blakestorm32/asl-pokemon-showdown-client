@@ -19,6 +19,7 @@ class Replays {
 		try {
 			error_log('[DB CONFIG] connection_string=' . json_encode($this->config['connection_string']));
 			if (@$this->config['connection_string']) {
+				error_log('[DB CONFIG] connection_string used:' . json_encode($this->config['connection_string']));
 				$this->db = new PDO($this->config['connection_string']);
 			} else {
 				$this->db = new PDO(
