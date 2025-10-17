@@ -1,0 +1,18 @@
+:{$PORT} {
+  # Your PHP files (index.php, replay.log.php, etc.) are at repo root
+  root * /app
+  encode zstd gzip
+
+  # Turn on logging so you can SEE what Caddy is doing
+  log {
+    output stdout
+    format console
+    level DEBUG
+  }
+
+  # Enable PHP execution (Railpack/FrankenPHP directive)
+  php_server
+
+  # Serve static files (images, CSS, JS, etc.)
+  file_server
+}
