@@ -1,115 +1,105 @@
 {
-  auto_https off     # Railway terminates HTTPS at the proxy
-  admin off          # Disable local Caddy admin API
+  auto_https off    # Railway terminates TLS
+  admin off
 }
 
-######################################################################
-# Main site (Client + Replays)
-# Base URL: https://asl-pokemon-showdown-client-production.up.railway.app/
-######################################################################
-http://:{$PORT} {
-
-  ####################################################################
-  # General settings
-  ####################################################################
-  root * /app/replay.pokemonshowdown.com
+##############################
+# MAIN SITE (pokemonshowdown.com)
+##############################
+http://:{$PORT_MAIN} {
+  root * /app/pokemonshowdown.com
   encode zstd gzip
 
-  # Logging (site-wide)
   log {
     output stdout
     format console
-    level DEBUG
   }
 
-  ####################################################################
-  # Reverse proxy for backend API (Node.js service)
-  ####################################################################
+  # --- Redirect subdomains ---
+  @replay path_regexp replay "^/replay(/.*)?$"
+  redir @replay https://replay.pokemonshowdown.com{re.replay.1} 302
+
+  @play path_regexp play "^/play(/.*)?$"
+  redir @play https://play.pokemonshowdown.com{re.play.1} 302
+
+  @dex path_regexp dex "^/(dex|pokedex)(/.*)?$"
+  redir @dex https://dex.pokemonshowdown.com{re.dex.2} 302
+
+  # --- Basic redirects from .htaccess ---
+  @calc path_regexp calc "^/(damage)?calc(/.*)?$"
+  redir @calc https://calc.pokemonshowdown.com{re.calc.2} 302
+
+  @forums path_regexp forums "^/forums(/.*)?$"
+  redir @forums https://smogon.com/forums{re.forums.1} 302
+
+  # --- Default fallback ---
+  try_files {path} {path}/ /index.php /index.html
+  php_server
+  file_server
+}
+
+##############################
+# PLAY SITE (play.pokemonshowdown.com)
+##############################
+http://:{$PORT_PLAY} {
+  root * /app/play.pokemonshowdown.com
+  encode zstd gzip
+
+  log {
+    output stdout
+    format console
+  }
+
+  # Allow CORS for JSON/data files
+  @data path_regexp data "^/(data|style)/.*\\.(json|js|css|woff2?)$"
+  header @data Access-Control-Allow-Origin "*"
+  header @data Access-Control-Allow-Methods "GET,POST,OPTIONS"
+  header @data Access-Control-Allow-Headers "Content-Type, X-Requested-With"
+
+  # Redirect shorthand paths
+  @replay path_regexp replay "^/r(/.*)?$"
+  redir @replay https://replay.pokemonshowdown.com{re.replay.1} 302
+
+  @team path_regexp team "^/t(/.*)?$"
+  redir @team https://teams.pokemonshowdown.com{re.team.1} 302
+
+  # Default SPA behavior
+  try_files {path} /client/index.html
+  file_server
+}
+
+##############################
+# REPLAY SITE (replay.pokemonshowdown.com)
+##############################
+http://:{$PORT_REPLAY} {
+  root * /app/replay.pokemonshowdown.com
+  encode zstd gzip
+
+  log {
+    output stdout
+    format console
+  }
+
+  # Proxy API to backend
   @api path /api*
   reverse_proxy @api http://localhost:9000
 
-  ####################################################################
-  # ---------------- REPLAY ROUTES ----------------
-  ####################################################################
-  # /search.json and /recent.json → /api/replays/search.json
+  # Routes
   @search path /search.json
   @recent path /recent.json
   rewrite @search /api/replays/search.json
   rewrite @recent /api/replays/search.json
 
-  # /download → /download.html
-  @download path /download
-  rewrite @download /download.html
-
-  # Pretty routes (e.g. /abc123 → /index.php?name=abc123)
-  @slug   path_regexp slug   ^/([A-Za-z0-9-]+)$
+  @slug path_regexp slug "^/([A-Za-z0-9-]+)$"
   rewrite @slug /index.php?name={re.slug.1}
 
-  # /abc123/manage → replay-manage.php
-  @manage path_regexp manage ^/([A-Za-z0-9-]+)/manage$
+  @manage path_regexp manage "^/([A-Za-z0-9-]+)/manage$"
   rewrite @manage /replay-manage.php?name={re.manage.1}&manage=1
 
-  # /abc123.log → replay.log.php
-  @log path_regexp log ^/([A-Za-z0-9-]+)\.log$
-  rewrite @log /replay.log.php?name={re.log.1}
-
-  # /abc123.inputlog → replay.log.php?inputlog=1
-  @input path_regexp input ^/([A-Za-z0-9-]+)\.inputlog$
-  rewrite @input /replay.log.php?inputlog=1&name={re.input.1}
-
-  # /abc123.json → replay.log.php?json=1
-  @json path_regexp j ^/([A-Za-z0-9-]+)\.json$
+  @json path_regexp j "^/([A-Za-z0-9-]+)\\.json$"
   rewrite @json /replay.log.php?json=1&name={re.j.1}
 
-  ####################################################################
-  # ---------------- CLIENT FRONTEND ----------------
-  ####################################################################
-  # Serve your built client from /app/play.pokemonshowdown.com
-  handle_path /client* {
-    root * /app/play.pokemonshowdown.com
-    encode zstd gzip
-
-    # CORS for frontend assets
-    @assets path_regexp data ^/client/data/.*\.(js|json)$
-    header @assets Access-Control-Allow-Origin "*"
-    header @assets Access-Control-Allow-Methods "GET,OPTIONS"
-    header @assets Access-Control-Allow-Headers "Content-Type"
-
-    # Handle service worker and cache rules
-    @nocache files /client/index.html /client/preactalpha.html
-    header @nocache Cache-Control "no-cache, no-store, must-revalidate"
-    header @nocache Pragma "no-cache"
-    header @nocache Expires "0"
-
-    try_files {path} {path}/ /client/index.html
-    file_server
-  }
-
-  ####################################################################
-  # ---------------- DEX REDIRECTS ----------------
-  ####################################################################
-  @dex path_regexp dex "^/dex(/.*)?$"
-  redir @dex https://asl-pokemon-showdown-dex-production.up.railway.app{re.dex.1} 302
-
-  @pokedex path_regexp pokedex "^/pokedex(/.*)?$"
-  redir @pokedex https://asl-pokemon-showdown-dex-production.up.railway.app{re.pokedex.1} 302
-
-  ####################################################################
-  # DirectoryIndex-like fallback
-  ####################################################################
   try_files {path} {path}/ /index.php /index.html
-
-  ####################################################################
-  # PHP & static files
-  ####################################################################
   php_server
   file_server
-
-  ####################################################################
-  # ---------------- CORS HEADERS ----------------
-  ####################################################################
-  # Allow Dex and Client to fetch replay data cross-origin
-  header Access-Control-Allow-Origin "https://asl-pokemon-showdown-dex-production.up.railway.app"
-  header Access-Control-Allow-Methods "GET, OPTIONS"
-  header Access-Control-Allow-Headers "Content-Type"
 }
