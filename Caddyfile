@@ -1,105 +1,74 @@
 {
-  auto_https off    # Railway terminates TLS
+  auto_https off
   admin off
 }
 
-##############################
-# MAIN SITE (pokemonshowdown.com)
-##############################
-http://:{$PORT_MAIN} {
-  root * /app/pokemonshowdown.com
+http://:{$PORT} {
   encode zstd gzip
 
+  # Log to Railway
   log {
     output stdout
     format console
   }
 
-  # --- Redirect subdomains ---
-  @replay path_regexp replay "^/replay(/.*)?$"
-  redir @replay https://replay.pokemonshowdown.com{re.replay.1} 302
+  ####################################################################
+  # /replay  →  replay.pokemonshowdown.com subtree
+  ####################################################################
+  handle_path /replay* {
+    root * /app/replay.pokemonshowdown.com
 
-  @play path_regexp play "^/play(/.*)?$"
-  redir @play https://play.pokemonshowdown.com{re.play.1} 302
+    # Reverse proxy for API (path already stripped to '/...')
+    @api path /api*
+    reverse_proxy @api http://localhost:9000
 
-  @dex path_regexp dex "^/(dex|pokedex)(/.*)?$"
-  redir @dex https://dex.pokemonshowdown.com{re.dex.2} 302
+    # Rewrite rules from .htaccess (now under /replay prefix)
+    @search path /search.json
+    @recent path /recent.json
+    rewrite @search /api/replays/search.json
+    rewrite @recent /api/replays/search.json
 
-  # --- Basic redirects from .htaccess ---
-  @calc path_regexp calc "^/(damage)?calc(/.*)?$"
-  redir @calc https://calc.pokemonshowdown.com{re.calc.2} 302
+    @download path /download
+    rewrite @download /download.html
 
-  @forums path_regexp forums "^/forums(/.*)?$"
-  redir @forums https://smogon.com/forums{re.forums.1} 302
+    @slug   path_regexp slug   "^/([A-Za-z0-9-]+)$"
+    rewrite @slug /index.php?name={re.slug.1}
 
-  # --- Default fallback ---
-  try_files {path} {path}/ /index.php /index.html
-  php_server
-  file_server
-}
+    @manage path_regexp manage "^/([A-Za-z0-9-]+)/manage$"
+    rewrite @manage /replay-manage.php?name={re.manage.1}&manage=1
 
-##############################
-# PLAY SITE (play.pokemonshowdown.com)
-##############################
-http://:{$PORT_PLAY} {
-  root * /app/play.pokemonshowdown.com
-  encode zstd gzip
+    @log path_regexp log "^/([A-Za-z0-9-]+)\\.log$"
+    rewrite @log /replay.log.php?name={re.log.1}
 
-  log {
-    output stdout
-    format console
+    @input path_regexp input "^/([A-Za-z0-9-]+)\\.inputlog$"
+    rewrite @input /replay.log.php?inputlog=1&name={re.input.1}
+
+    @json path_regexp j "^/([A-Za-z0-9-]+)\\.json$"
+    rewrite @json /replay.log.php?json=1&name={re.j.1}
+
+    try_files {path} {path}/ /index.php /index.html
+    php_server
+    file_server
   }
 
-  # Allow CORS for JSON/data files
-  @data path_regexp data "^/(data|style)/.*\\.(json|js|css|woff2?)$"
-  header @data Access-Control-Allow-Origin "*"
-  header @data Access-Control-Allow-Methods "GET,POST,OPTIONS"
-  header @data Access-Control-Allow-Headers "Content-Type, X-Requested-With"
+  ####################################################################
+  # /play   →  play.pokemonshowdown.com subtree (client)
+  ####################################################################
+  handle_path /play* {
+    root * /app/play.pokemonshowdown.com
 
-  # Redirect shorthand paths
-  @replay path_regexp replay "^/r(/.*)?$"
-  redir @replay https://replay.pokemonshowdown.com{re.replay.1} 302
-
-  @team path_regexp team "^/t(/.*)?$"
-  redir @team https://teams.pokemonshowdown.com{re.team.1} 302
-
-  # Default SPA behavior
-  try_files {path} /client/index.html
-  file_server
-}
-
-##############################
-# REPLAY SITE (replay.pokemonshowdown.com)
-##############################
-http://:{$PORT_REPLAY} {
-  root * /app/replay.pokemonshowdown.com
-  encode zstd gzip
-
-  log {
-    output stdout
-    format console
+    # SPA fallback (path already stripped to '/...')
+    try_files {path} /index.html
+    file_server
   }
 
-  # Proxy API to backend
-  @api path /api*
-  reverse_proxy @api http://localhost:9000
-
-  # Routes
-  @search path /search.json
-  @recent path /recent.json
-  rewrite @search /api/replays/search.json
-  rewrite @recent /api/replays/search.json
-
-  @slug path_regexp slug "^/([A-Za-z0-9-]+)$"
-  rewrite @slug /index.php?name={re.slug.1}
-
-  @manage path_regexp manage "^/([A-Za-z0-9-]+)/manage$"
-  rewrite @manage /replay-manage.php?name={re.manage.1}&manage=1
-
-  @json path_regexp j "^/([A-Za-z0-9-]+)\\.json$"
-  rewrite @json /replay.log.php?json=1&name={re.j.1}
-
-  try_files {path} {path}/ /index.php /index.html
-  php_server
-  file_server
+  ####################################################################
+  # /       →  pokemonshowdown.com subtree (main)
+  ####################################################################
+  handle {
+    root * /app/pokemonshowdown.com
+    try_files {path} {path}/ /index.php /index.html
+    php_server
+    file_server
+  }
 }
