@@ -48,7 +48,6 @@ http://:{$PORT} {
 
     try_files {path} {path}/ /index.php /index.html
     php_server
-    file_server
   }
 
   ####################################################################
@@ -69,6 +68,5 @@ http://:{$PORT} {
     root * /app/pokemonshowdown.com
     try_files {path} {path}/ /index.php /index.html
     php_server
-    file_server
   }
 }
