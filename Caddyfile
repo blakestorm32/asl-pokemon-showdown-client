@@ -1,65 +1,114 @@
 {
-  auto_https off     # disable internal TLS/ACME (Railway terminates HTTPS)
-  admin off          # disable Caddy admin API
+  auto_https off     # Railway handles HTTPS
+  admin off
 }
 
 http://:{$PORT} {
-  root * /app/replay.pokemonshowdown.com
-  encode zstd gzip
 
-  # Log all HTTP requests to Railway logs
-  log {
-    output stdout
-    format console
-    level DEBUG
+  ##############################
+  # 1️⃣ replay.pokemonshowdown.com
+  ##############################
+  handle_path /replay* {
+    root * /app/replay.pokemonshowdown.com
+    encode zstd gzip
+
+    log {
+      output stdout
+      format console
+      level DEBUG
+    }
+
+    @api path /replay/api*
+    reverse_proxy @api http://localhost:9000
+
+    @search path /replay/search.json
+    @recent path /replay/recent.json
+    rewrite @search /api/replays/search.json
+    rewrite @recent /api/replays/search.json
+
+    @download path /replay/download
+    rewrite @download /download.html
+
+    @slug   path_regexp slug   ^/replay/([A-Za-z0-9-]+)$
+    rewrite @slug /index.php?name={re.slug.1}
+
+    @manage path_regexp manage ^/replay/([A-Za-z0-9-]+)/manage$
+    rewrite @manage /replay-manage.php?name={re.manage.1}&manage=1
+
+    @log path_regexp log ^/replay/([A-Za-z0-9-]+)\.log$
+    rewrite @log /replay.log.php?name={re.log.1}
+
+    @input path_regexp input ^/replay/([A-Za-z0-9-]+)\.inputlog$
+    rewrite @input /replay.log.php?inputlog=1&name={re.input.1}
+
+    @json path_regexp j ^/replay/([A-Za-z0-9-]+)\.json$
+    rewrite @json /replay.log.php?json=1&name={re.j.1}
+
+    try_files {path} {path}/ /index.php /index.html
+    php_server
+    file_server
   }
 
-  #######################
-  # Reverse proxy /api/* 
-  #######################
-  @api path /api*
-  reverse_proxy @api http://localhost:9000
+  ##############################
+  # 2️⃣ play.pokemonshowdown.com
+  ##############################
+  handle_path /play* {
+    root * /app/play.pokemonshowdown.com
+    encode zstd gzip
+    php_server
 
-  #######################
-  # Rewrite rules (from your .htaccess)
-  #######################
+    # Cache headers for index/preactalpha.html
+    @nocache files /play/index.html /play/preactalpha.html
+    header @nocache Cache-Control "max-age=0, no-cache, no-store, must-revalidate"
+    header @nocache Pragma "no-cache"
+    header @nocache Expires "Wed, 11 Jan 1984 05:00:00 GMT"
 
-  # /search.json and /recent.json → /api/replays/search.json
-  @search path /search.json
-  @recent path /recent.json
-  rewrite @search /api/replays/search.json
-  rewrite @recent /api/replays/search.json
+    # CORS for colors.json and data files
+    @colors path /play/colors.json
+    header @colors Access-Control-Allow-Origin "*"
+    header @colors Access-Control-Allow-Methods "GET,POST,OPTIONS"
+    @data path_regexp data ^/play/data/.*\.(js|json)$
+    header @data Access-Control-Allow-Origin "*"
 
-  # /download → /download.html
-  @download path /download
-  rewrite @download /download.html
+    # Sprite rewrites
+    @spr_xyani path_regexp s1 ^/play/sprites/xyani(.*)$
+    rewrite @spr_xyani /play/sprites/ani{re.s1.1}
+    @spr_xydex path_regexp s2 ^/play/sprites/xydex(.*)$
+    rewrite @spr_xydex /play/sprites/dex{re.s2.1}
 
-  # Pretty routes (e.g. /abc123)
-  @slug   path_regexp slug   ^/([A-Za-z0-9-]+)$
-  rewrite @slug /index.php?name={re.slug.1}
+    # Battle replays shortlinks
+    @battleid path_regexp b1 ^/play/battle-([a-z0-9-]+)$
+    redir @battleid https://replay.pokemonshowdown.com/{re.b1.1} 302
 
-  # /abc123/manage → replay-manage.php
-  @manage path_regexp manage ^/([A-Za-z0-9-]+)/manage$
-  rewrite @manage /replay-manage.php?name={re.manage.1}&manage=1
+    try_files {path} {path}/ /index.php /index.html
+    file_server
+  }
 
-  # /abc123.log → replay.log.php
-  @log path_regexp log ^/([A-Za-z0-9-]+)\.log$
-  rewrite @log /replay.log.php?name={re.log.1}
+  ##############################
+  # 3️⃣ pokemonshowdown.com root site
+  ##############################
+  handle {
+    root * /app/pokemonshowdown.com
+    encode zstd gzip
+    php_server
 
-  # /abc123.inputlog → replay.log.php?inputlog=1
-  @input path_regexp input ^/([A-Za-z0-9-]+)\.inputlog$
-  rewrite @input /replay.log.php?inputlog=1&name={re.input.1}
+    # Markdown
+    @md files *.md
+    header @md Content-Type "text/markdown; charset=utf-8"
 
-  # /abc123.json → replay.log.php?json=1
-  @json path_regexp j ^/([A-Za-z0-9-]+)\.json$
-  rewrite @json /replay.log.php?json=1&name={re.j.1}
+    # Canonical redirects
+    redir /privacy /.pages-cached/privacy.html 302
+    redir /rules /.pages-cached/rules.html 302
+    redir /contact /.pages-cached/contact.html 302
 
-  # DirectoryIndex-like fallback
-  try_files {path} {path}/ /index.php /index.html
+    # External resources
+    redir /replay/{rest...} https://replay.pokemonshowdown.com/{rest} 302
+    redir /dex/{rest...} https://dex.pokemonshowdown.com/{rest} 302
+    redir /pokedex/{rest...} https://dex.pokemonshowdown.com/{rest} 302
+    redir /sprites{rest...} https://play.pokemonshowdown.com/sprites{rest} 301
+    redir /audio{rest...}  https://play.pokemonshowdown.com/audio{rest} 301
 
-  # Serve PHP files via FrankenPHP
-  php_server
-
-  # Serve static files (CSS, JS, etc.)
-  file_server
+    try_files {path} {path}/ /index.php /index.html
+    file_server
+  }
 }
