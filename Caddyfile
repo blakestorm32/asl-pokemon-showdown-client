@@ -12,6 +12,36 @@ http://:{$PORT} {
     format console
   }
 
+  # MIME types from .htaccess files
+  header *.phps Content-Type "text/plain"
+  header *.tgz Content-Type "application/x-tgz"
+  header *.crx Content-Type "application/x-chrome-extension"
+  header *.webapp Content-Type "application/x-web-app-manifest+json"
+  header *.heapsnapshot Content-Type "application/octet-stream"
+  header *.md Content-Type "text/markdown; charset=utf-8"
+  header *.json5 Content-Type "text/plain; charset=UTF-8"
+
+  # Security blocks - deny access to sensitive directories
+  @config path /config/*
+  @git path /.git/*
+  @lib path /lib/*
+  @backup path /backup/*
+  @template path /*.template.*
+  @testclient path /testclient*
+  respond @config 403
+  respond @git 403
+  respond @lib 403
+  respond @backup 403
+  respond @template 403
+  respond @testclient 403
+
+  # Directory index and error pages
+  @not_found expression {http.error.status_code} == 404
+  handle @not_found {
+    try_files /dirindex/404.html
+    file_server
+  }
+
   ####################################################################
   # /replay  →  replay.pokemonshowdown.com subtree
   ####################################################################
@@ -56,6 +86,96 @@ http://:{$PORT} {
   handle_path /play* {
     root * /app/play.pokemonshowdown.com
 
+    # Redirects from .htaccess
+    redir /appeals? /view-help-request--appeal 302
+    redir /report /view-help-request--report 302
+    redir /requesthelp /view-help-request--other 302
+    redir /rooms?suggestions? https://www.smogon.com/forums/threads/room-suggestions-are-no-longer-being-taken.3522130/ 302
+    redir /suggestions? https://www.smogon.com/forums/forums/517/ 302
+    redir /adminrequests? https://www.smogon.com/forums/threads/names-passwords-rooms-and-servers-contacting-upper-staff.3538721/ 302
+    redir /forgotpassword https://www.smogon.com/forums/threads/names-passwords-rooms-and-servers-contacting-upper-staff.3538721/post-6227626/ 302
+    redir /bugs?(reports?)? https://www.smogon.com/forums/forums/876/ 302
+    redir /formatsuggestions https://pokemonshowdown.com/pages/formatsuggestions 302
+    redir /rules? https://pokemonshowdown.com/rules 302
+    redir /faq https://www.smogon.com/forums/posts/6774128/ 302
+    redir /credits? https://pokemonshowdown.com/credits 302
+    redir /news https://pokemonshowdown.com/news 302
+    redir /privacy https://pokemonshowdown.com/privacy 302
+    redir /contact https://pokemonshowdown.com/contact 302
+    redir /dex https://dex.pokemonshowdown.com/ 302
+    redir /(damage)?calc https://calc.pokemonshowdown.com/ 302
+    redir /insecure /?insecure 302
+    redir /devdiscord https://discord.com/invite/D8QwhsH 302
+    redir /smogcord https://discord.gg/smogon 302
+    redir /smogdex https://smogon.com/dex/ 302
+    redir /forums? https://smogon.com/forums/ 302
+    redir /replays? https://replay.pokemonshowdown.com/ 302
+    redir /trustworthy-dlc-link https://www.youtube.com/watch?v=dQw4w9WgXcQ 302
+
+    # Teams shortlinks
+    redir /t https://teams.pokemonshowdown.com/ 302
+    redir /t/{team} https://teams.pokemonshowdown.com/view/{team} 302
+
+    # Replays shortlinks  
+    redir /r https://replay.pokemonshowdown.com/ 302
+    redir /r/{replay} https://replay.pokemonshowdown.com/{replay} 302
+
+    # Battle redirects
+    redir /battle-{battle} https://replay.pokemonshowdown.com/{battle} 302
+
+    # Lobby redirect
+    redir /lobby? / 302
+
+    # Replay redirects
+    redir /replay/battle-{battle} https://replay.pokemonshowdown.com/{battle} 302
+    redir /replay/turn_{data}.png /replay/turn-image.php?data={data} 302
+
+    # Server redirects
+    redir /~~{serverid}:{port}/action.php /action.php?serverid={serverid} 302
+    redir /~~{host}/{roomid} /redirect-server.php?host={host}&roomid={roomid} 302
+
+    # Ladder redirect (unless output=html)
+    @ladder_html path /ladder.php
+    @ladder_html query output=html
+    redir @ladder_html https://pokemonshowdown.com/ladder/ 301
+
+    # Sprite directory rewrites
+    redir /sprites/xyani{path} /sprites/ani{path} 302
+    redir /sprites/xydex{path} /sprites/dex{path} 302
+    redir /sprites/smicons{path} /sprites/pokemonicons{path} 302
+    redir /sprites/trainers/latest? /sprites/trainers/?filter=recent 302
+    redir /sprites/trainers/credits? /sprites/trainers/?filter=credited 302
+    redir /sprites/rby{path} /sprites/gen1{path} 302
+    redir /sprites/gsc{path} /sprites/gen2{path} 302
+    redir /sprites/rse{path} /sprites/gen3{path} 302
+    redir /sprites/dpp{path} /sprites/gen4{path} 302
+    redir /sprites/bw{path} /sprites/gen5{path} 302
+    redir /sprites/xy{path} /sprites/gen6{path} 302
+    redir /sprites/sm{path} /sprites/gen7{path} 302
+    redir /sprites/gen1rg-back{path} /sprites/gen1-back{path} 302
+    redir /sprites/gen1rb-back{path} /sprites/gen1-back{path} 302
+    redir /sprites/gen2g-back{path} /sprites/gen2-back{path} 302
+    redir /sprites/gen2s-back{path} /sprites/gen2-back{path} 302
+    redir /sprites/gen3rs-back{path} /sprites/gen3-back{path} 302
+    redir /sprites/gen3frlg-back{path} /sprites/gen3-back{path} 302
+    redir /sprites/gen4dp-back{path} /sprites/gen4-back{path} 302
+    redir /sprites/gen4dp-2-back{path} /sprites/gen4-back{path} 302
+
+    # Special headers for play.pokemonshowdown.com
+    @index_files path /index.html /preactalpha.html
+    header @index_files Cache-Control "no-cache, no-store, must-revalidate"
+    header @index_files Pragma "no-cache"
+    header @index_files Expires "0"
+
+    @colors_json path /colors.json
+    header @colors_json Access-Control-Allow-Origin "*"
+    header @colors_json Access-Control-Allow-Methods "GET,POST,OPTIONS"
+
+    @safe_resources path /style/fonts?/*.{eot,svg,ttf,woff,woff2} /data/*.js /data/*.json
+    header @safe_resources Access-Control-Allow-Origin "*"
+    header @safe_resources Access-Control-Allow-Methods "GET,POST,OPTIONS"
+    header @safe_resources Access-Control-Allow-Headers "Content-Type, X-Requested-With"
+
     # SPA fallback (path already stripped to '/...')
     try_files {path} /index.html
     file_server
@@ -66,6 +186,59 @@ http://:{$PORT} {
   ####################################################################
   handle {
     root * /app/pokemonshowdown.com
+
+    # Redirects from .htaccess
+    redir /privacy /.pages-cached/privacy.html 302
+    redir /rules? /.pages-cached/rules.html 302
+    redir /contact? /.pages-cached/contact.html 302
+    redir /credits credits.php 302
+    redir /userstats userstats.php 302
+    redir /interstice interstice.php 302
+    redir /versions versions.php 302
+    redir /intro intro.php 302
+    redir /news/version0.9? news/version0.9.php 302
+    redir /news/june2013attack? news/june2013attack.php 302
+    redir /news/{id}? news/view.php?id={id} 302
+    redir /news?{id}.json news/viewjson.php?id={id} 302
+    redir /ladder/{format}.json ladder.php?format={format}&json 302
+    redir /ladder?{format} ladder.php?format={format} 302
+    redir /users? users.php 302
+    redir /users/{user}.json users.php?user={user}&json 302
+    redir /users/{user}/modlog usermodlog.php?user={user} 302
+    redir /users/{user} users.php?user={user} 302
+    redir /usersearch? usersearch.php 302
+    redir /resetpassword?{token} resetpassword.php?token={token} 302
+    redir /damagecalc/wall? https://calc.pokemonshowdown.com/honkalculate.html?mode=all-vs-one 302
+    redir /damagecalc/coverage? https://calc.pokemonshowdown.com/honkalculate.html?mode=one-vs-all 302
+    redir /damagecalc/{path} https://calc.pokemonshowdown.com/{path} 302
+    redir /damagecalc https://calc.pokemonshowdown.com/ 302
+    redir /pages/{page}? /.pages-cached/{page}.html 302
+    redir /autodownload?{os} autodownload.php?os={os} 302
+    redir /servers? servers/index.php 302
+    redir /servers?{id} servers/server.php?id={id} 302
+    redir /servers/{id}.json servers/server.php?id={id}&json 302
+    redir /replays/{replay} replays/index.html 302
+    redir /replay/{path} https://replay.pokemonshowdown.com/{path} 302
+    redir /dex/{path} https://dex.pokemonshowdown.com/{path} 302
+    redir /pokedex/{path} https://dex.pokemonshowdown.com/{path} 302
+    redir /forums?(index.php)? https://smogon.com/forums/ 302
+    redir /appeals? https://play.pokemonshowdown.com/view-help-request--appeal 302
+    redir /report? https://play.pokemonshowdown.com/view-help-request--report 302
+    redir /help? https://play.pokemonshowdown.com/help 302
+    redir /rooms?suggestions? https://www.smogon.com/forums/threads/room-suggestions-are-no-longer-being-taken.3522130/ 302
+    redir /suggestions? https://www.smogon.com/forums/forums/suggestions.517/ 302
+    redir /adminrequests? https://www.smogon.com/forums/threads/names-rooms-and-servers-contacting-senior-staff.3538721/ 302
+    redir /bugs?(reports?)? https://www.smogon.com/forums/ps-bug-report-form/ 302
+    redir /faq? https://www.smogon.com/forums/posts/6774128/ 302
+    redir /whatismyip whatismyip.php 302
+    redir /stats stats.php 302
+    redir /standalone-teambuilder? teambuilder.php 302
+    redir /user{path} /users{path} 301
+    redir /sprites{path} https://play.pokemonshowdown.com/sprites{path} 301
+    redir /audio{path} https://play.pokemonshowdown.com/audio{path} 301
+    redir /fx{path} https://play.pokemonshowdown.com/fx{path} 301
+    redir /pokemonshowdownbeta.png https://play.pokemonshowdown.com/pokemonshowdownbeta.png 301
+
     try_files {path} {path}/ /index.php /index.html
     php_server
   }
